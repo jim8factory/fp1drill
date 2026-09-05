@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FP1級 勉強部屋 v2</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#182334;font-family:system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif}
+header{background:#17365d;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{margin:0;font-size:24px}nav{display:flex;gap:7px;flex-wrap:wrap;padding:10px;background:#fff;border-bottom:1px solid #dbe3ec}
+button,.filebtn{border:0;border-radius:8px;padding:10px 14px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+button.gray{background:#e8eef6;color:#17365d}button.red{background:#b91c1c}
+main{max-width:1150px;margin:auto;padding:18px}.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:15px;box-shadow:0 2px 8px #0001}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.stat{background:#eef4fa;padding:14px;border-radius:10px}.big{font-size:28px;font-weight:800}
+input,select,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;font:inherit}.choices{display:grid;gap:9px;margin:15px 0}
+.choice{text-align:left;background:#f8fafc;color:#182334;border:1px solid #cbd5e1}.ok{background:#dcfce7!important}.ng{background:#fee2e2!important}
+.tag{display:inline-block;padding:4px 8px;background:#e8eef6;border-radius:20px;font-size:12px;margin:2px}.muted{color:#64748b}
+.lesson{border-left:4px solid #2563eb;padding-left:14px;margin:15px 0}.note{background:#fff7ed;padding:12px;border:1px solid #fed7aa;border-radius:8px}
+.progress{height:9px;background:#e5e7eb;border-radius:9px;overflow:hidden}.progress span{display:block;height:100%;background:#2563eb}
+@media(max-width:650px){header{display:block}header button{margin-top:10px}main{padding:10px}}
+</style></head>
+<body>
+<header><h1>📘 FP1級 勉強部屋</h1><div><button onclick="show('PDF管理')">📄 PDFを読み込む</button> <button onclick="saveHTML()">⬇ HTMLを保存</button></div></header>
+<nav id="nav"></nav><main id="app"></main>
+<script>
+const SUBJECTS=["ライフプランニングと資金計画","リスク管理","金融資産運用","タックスプランニング","不動産","相続・事業承継"];
+const KEY="FP1_STUDY_V2"; const OFFICIAL="https://www.jafp.or.jp/exam/";
+let S=load(), questions=S.questions||[], pdfs=S.pdfs||[], current=null,list=[],idx=0;
+function base(){return{answers:{},history:[],lessons:[],questions:[],pdfs:[]}}
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||base()}catch(e){return base()}}
+function save(){S.questions=questions;S.pdfs=pdfs;localStorage.setItem(KEY,JSON.stringify(S))}
+function esc(x){return String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function nav(a){let ns=["🏠 ホーム","📝 ドリル","📚 分野別","🔎 過去問検索","📄 PDF管理","📖 授業","⭐ 弱点帳","🧮 計算問題","🎯 模擬試験","📊 学習記録","💾 データ管理"];document.querySelector("#nav").innerHTML=ns.map(n=>`<button class="${n.slice(2)===a?"":"gray"}" onclick="show('${n.slice(2)}')">${n}</button>`).join("")}
+function show(p){nav(p);({ホーム:home,ドリル:drill,分野別:fields,過去問検索:search,PDF管理:pdf,授業:lessons,弱点帳:weak,計算問題:calc,模擬試験:mock,学習記録:stats,データ管理:data}[p]||home)()}
+function home(){let h=S.history.length,o=S.history.filter(x=>x.ok).length;app.innerHTML=`<div class="card"><h2>🏠 今日の学習</h2><div class="grid"><div class="stat">新しい問題<div class="big">5問</div></div><div class="stat">苦手問題<div class="big">${weakCount()}</div></div><div class="stat">計算問題<div class="big">3問</div></div><div class="stat">授業<div class="big">${S.lessons.length}</div></div></div></div><div class="card"><h2>📈 進捗</h2><div class="grid"><div class="stat">回答<div class="big">${h}</div></div><div class="stat">正答率<div class="big">${h?Math.round(o/h*100):0}%</div></div></div></div><div class="card"><h2>📚 メニュー</h2>
+<div class="grid">
+<button onclick="show('ドリル')">📝 ドリル</button>
+<button onclick="show('分野別')">📚 分野別</button>
+<button onclick="show('過去問検索')">🔎 過去問検索</button>
+<button onclick="show('PDF管理')">📄 過去問PDFを読み込む</button>
+<button onclick="show('授業')">📖 授業</button>
+<button onclick="show('弱点帳')">⭐ 弱点帳</button>
+<button onclick="show('計算問題')">🧮 計算問題</button>
+<button onclick="show('模擬試験')">🎯 模擬試験</button>
+<button onclick="show('学習記録')">📊 学習記録</button>
+<button onclick="show('データ管理')">💾 データ管理</button>
+</div></div>
+<div class="card"><h2>🎓 学習サイクル</h2><p>過去問 → 回答 → 授業 → 類題 → 弱点登録 → 後日再出題。</p><button onclick="show('ドリル')">📝 ドリル開始</button> <button class="gray" onclick="show('弱点帳')">⭐ 弱点から</button></div><div class="card"><h2>🌐 公式情報</h2><button onclick="window.open('${OFFICIAL}','_blank')">公式サイトを開く</button></div>`}
+function weakCount(){return questions.filter(q=>(S.answers[q.id]?.wrong||0)>0).length}
+function drill(){app.innerHTML=`<div class="card"><h2>📝 FP1級ドリル</h2><div id="q"></div></div>`;list=questions.filter(q=>q.ans!=null);idx=0;next()}
+function next(){if(!list.length){q.innerHTML="<p>問題がありません。PDFを読み込んでください。</p>";return}current=list[idx++%list.length];render()}
+function render(){q.innerHTML=`<div class="muted">${esc(current.year)} ${esc(current.session)} / ${esc(current.type)} / ${esc(current.subject)} / ${esc(current.number)}</div><h3>${esc(current.q)}</h3><div class="choices">${(current.a||[]).map((x,i)=>`<button class="choice" onclick="answer(${i},this)">${String.fromCharCode(65+i)}. ${esc(x)}</button>`).join("")}</div><div id="fb"></div>`}
+function answer(i,el){if(fb.innerHTML)return;let ok=i===current.ans,x=S.answers[current.id]||{correct:0,wrong:0};x[ok?"correct":"wrong"]++;x.lastOk=ok;S.answers[current.id]=x;S.history.push({id:current.id,ok,date:new Date().toISOString()});save();document.querySelectorAll(".choice")[current.ans].classList.add("ok");if(!ok)el.classList.add("ng");fb.innerHTML=`<div class="card"><b>${ok?"✅ 正解":"❌ 不正解"}</b><p>正解：${String.fromCharCode(65+current.ans)}</p><p>${esc(current.ex||"解説は元PDFを確認してください。")}</p>${!ok?`<p>⭐ ${x.wrong}回不正解。${x.wrong>=3?"要重点復習":"復習対象"}。</p>`:""}</div><button onclick="lesson('${current.id}')">📖 この問題を授業する</button> <button class="gray" onclick="next()">次の問題</button>`}
+function fields(){app.innerHTML=`<div class="card"><h2>📚 6分野</h2><div class="grid">${SUBJECTS.map(s=>{let n=questions.filter(q=>q.subject===s),h=n.filter(q=>S.answers[q.id]).length;return`<div class="stat"><b>${esc(s)}</b><p>${n.length}問 / 学習 ${h}問</p><button onclick="field('${esc(s)}')">分野ドリル</button></div>`}).join("")}</div></div>`}
+function field(s){list=questions.filter(q=>q.subject===s&&q.ans!=null);idx=0;nav("ドリル");app.innerHTML='<div class="card"><h2>📝 分野ドリル</h2><div id="q"></div></div>';next()}
+function search(){app.innerHTML=`<div class="card"><h2>🔎 過去問検索</h2><div class="grid"><input id="kw" placeholder="問題文・選択肢・解説・PDF名"><select id="sub"><option value="">全分野</option>${SUBJECTS.map(s=>`<option>${esc(s)}</option>`).join("")}</select><input id="year" placeholder="年度"><select id="typ"><option value="">学科／実技</option><option>学科</option><option>実技</option></select><input id="num" placeholder="問題番号"></div><br><button onclick="doSearch()">検索</button></div><div id="res"></div>`;doSearch()}
+function doSearch(){let k=(kw.value||"").toLowerCase(),s=sub.value,y=year.value,t=typ.value,n=num.value;let a=questions.filter(x=>{let b=JSON.stringify(x).toLowerCase();return(!k||b.includes(k))&&(!s||x.subject===s)&&(!y||String(x.year).includes(y))&&(!t||x.type===t)&&(!n||String(x.number).includes(n))});res.innerHTML=`<div class="card"><b>${a.length}件</b>${a.map(x=>`<div class="card"><span class="tag">${esc(x.subject)}</span><span class="tag">${esc(status(x))}</span><p>${esc(x.q)}</p><button onclick="openQ('${x.id}')">問題</button> <button onclick="lesson('${x.id}')">📖 授業</button></div>`).join("")||"<p>該当なし</p>"}</div>`}
+function status(q){let x=S.answers[q.id];if(!x)return"未学習";if(x.wrong>=3)return"要重点復習";if(x.wrong)return"苦手";if(x.correct>=2)return"定着";return"学習中"}
+function openQ(id){current=questions.find(x=>x.id===id);nav("ドリル");app.innerHTML='<div class="card"><h2>📝 問題</h2><div id="q"></div></div>';render()}
+function lesson(id){let x=questions.find(q=>q.id===id);if(!x)return;if(!S.lessons.includes(id))S.lessons.push(id);save();app.innerHTML=`<div class="card"><h2>📖 FP1級 AI講師</h2><div class="muted">${esc(x.year)} / ${esc(x.type)} / ${esc(x.subject)} / ${esc(x.number)}</div><div class="lesson"><h3>① この問題のテーマ</h3><p>${esc((x.tags||[]).join("・")||x.subject||"過去問論点")}</p></div><div class="lesson"><h3>② 必須知識</h3><p>制度・法律・税務・金融など、問題を解くための必須知識を整理します。</p></div><div class="lesson"><h3>③ 基礎から説明</h3><p><b>制度 → 趣旨 → 条件 → 計算 → 結論</b>の順で考えます。</p></div><div class="lesson"><h3>④ FP1級レベルまで深掘り</h3><p>適用条件、例外、類似制度との違い、計算過程まで説明できることを目標にします。</p><div class="note"><b>AIによる補足</b><br>ここはPDF本文そのものではなく、学習補助の説明です。</div></div><div class="lesson"><h3>⑤ 選択肢分析</h3>${(x.a||[]).map((a,i)=>`<p><b>${String.fromCharCode(65+i)}.</b> ${esc(a)} ${i===x.ans?"✅ 正解":"❌ 不適切"}</p>`).join("")}</div><div class="lesson"><h3>⑥ 実務的な考え方</h3><p>顧客へ説明するときは、結論だけでなく趣旨・条件・例外・他制度との関係を確認します。</p></div><div class="lesson"><h3>⑦ 試験対策</h3><p>対象者、期間、金額、適用条件、例外、強い表現に注意します。</p></div><div class="lesson"><h3>⑧ 類題</h3><p>条件を1つ変更した場合、結論がどう変わるか自分の言葉で説明してください。</p></div><button onclick="openQ('${x.id}')">📝 問題へ戻る</button></div>`}
+function lessons(){let a=[...new Set(S.lessons)].reverse();app.innerHTML=`<div class="card"><h2>📖 授業履歴</h2>${a.map(id=>{let q=questions.find(x=>x.id===id);return q?`<div class="card"><b>${esc(q.subject)}</b><p>${esc(q.q)}</p><button onclick="lesson('${id}')">復習</button></div>`:""}).join("")||"<p>ありません。</p>"}</div>`}
+function weak(){let a=questions.filter(q=>S.answers[q.id]?.wrong>0).sort((x,y)=>(S.answers[y.id]?.wrong||0)-(S.answers[x.id]?.wrong||0));app.innerHTML=`<div class="card"><h2>⭐ 弱点帳</h2>${a.map(q=>`<div class="card"><span class="tag">${S.answers[q.id].wrong}回不正解</span><span class="tag">${status(q)}</span><p>${esc(q.q)}</p><button onclick="openQ('${q.id}')">解き直す</button> <button onclick="lesson('${q.id}')">授業</button></div>`).join("")||"<p>弱点はありません。</p>"}</div>`}
+function calc(){app.innerHTML=`<div class="card"><h2>🧮 計算問題</h2><p>問題 → 自分で計算 → 回答 → 正しい式 → 数字代入 → 答え。</p><div class="grid">${["キャッシュフロー","6つの係数","投資指標","債券","税額計算","不動産所得","譲渡所得","相続税","贈与税","財産評価","生命保険","年金"].map(x=>`<button class="gray" onclick="alert('${x}：まず求める値・条件・式を整理してください。')">${x}</button>`).join("")}</div></div>`}
+function mock(){app.innerHTML=`<div class="card"><h2>🎯 模擬試験</h2><p>登録された解答可能な問題からランダム出題します。</p><button onclick="startMock()">10問・模擬試験開始</button></div>`}
+let mq=[],mi=0;
+function startMock(){mq=questions.filter(q=>q.ans!=null).sort(()=>Math.random()-.5).slice(0,10);if(!mq.length)return alert("PDFを読み込んでください。");mi=0;mockOne()}
+function mockOne(){let x=mq[mi];app.innerHTML=`<div class="card"><p>第${mi+1}/${mq.length}問</p><h3>${esc(x.q)}</h3><div class="choices">${x.a.map((a,i)=>`<button class="choice" onclick="mockAns(${i})">${String.fromCharCode(65+i)}. ${esc(a)}</button>`).join("")}</div></div>`}
+function mockAns(i){let x=mq[mi],a=S.answers[x.id]||{correct:0,wrong:0};a[i===x.ans?"correct":"wrong"]++;S.answers[x.id]=a;S.history.push({id:x.id,ok:i===x.ans,date:new Date().toISOString()});save();mi++;if(mi<mq.length)mockOne();else{let score=S.history.slice(-mq.length).filter(x=>x.ok).length;app.innerHTML=`<div class="card"><h2>🎯 結果</h2><div class="big">${score}/${mq.length}</div><p>正答率 ${Math.round(score/mq.length*100)}%</p><button onclick="show('弱点帳')">弱点分析</button></div>`}}
+function stats(){let h=S.history,o=h.filter(x=>x.ok);app.innerHTML=`<div class="card"><h2>📊 学習記録</h2><div class="grid"><div class="stat">回答<div class="big">${h.length}</div></div><div class="stat">正答率<div class="big">${h.length?Math.round(o.length/h.length*100):0}%</div></div><div class="stat">授業<div class="big">${S.lessons.length}</div></div></div></div><div class="card"><h2>6分野</h2>${SUBJECTS.map(s=>{let z=h.filter(v=>questions.find(q=>q.id===v.id)?.subject===s),r=z.length?Math.round(z.filter(v=>v.ok).length/z.length*100):0;return`<p><b>${esc(s)}</b> ${z.length}回答 / ${r}%</p><div class="progress"><span style="width:${r}%"></span></div>`}).join("")}</div>`}
+function pdf(){app.innerHTML=`<div class="card"><h2>📄 過去問PDFを読み込む</h2>
+<p>ここから、あなたのPCに保存してあるFP1級の過去問PDFを選択してください。</p>
+<div style="padding:20px;border:2px dashed #94a3b8;border-radius:12px;text-align:center;background:#f8fafc">
+<label class="filebtn" style="display:inline-block;font-size:18px;padding:14px 20px">📁 PDFファイルを選択
+<input id="pf" type="file" accept=".pdf,application/pdf" hidden onchange="document.getElementById('selected').textContent=this.files[0]?'選択中：'+this.files[0].name:'PDF未選択'"></label>
+<p id="selected" class="muted">PDF未選択</p>
+<button onclick="importPDF()">📥 このPDFを読み込む</button>
+</div>
+<p id="pm" class="muted"></p></div><div class="card"><h2>📚 読み込み済み</h2>${pdfs.map((r,i)=>`<div class="card"><b>${esc(r.name)}</b><p>${r.pages}ページ / ${r.count}ページ抽出 / ${new Date(r.date).toLocaleString()}</p><button onclick="pdfSearch(${i})">検索</button> <button onclick="pdfList(${i})">問題一覧</button> <button onclick="pdfTeach(${i})">授業</button> <button class="red" onclick="removePDF(${i})">削除</button></div>`).join("")||"<p>ありません。</p>"}</div>`}
+async function importPDF(){let f=pf.files[0];if(!f)return alert("PDFを選択してください");pm.textContent="PDF解析中…";try{await loadPdfJS();let pdf=await window.pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise,id="PDF_"+Date.now(),rec={id,name:f.name,pages:pdf.numPages,count:0,date:new Date().toISOString()};for(let p=1;p<=pdf.numPages;p++){let pg=await pdf.getPage(p),tc=await pg.getTextContent(),text=tc.items.map(i=>i.str).join(" ").replace(/\s+/g," ").trim();if(text){questions.push({id:id+"_P"+p,pdfId:id,year:(f.name.match(/20\d{2}/)||[""])[0],session:"",type:"PDF",subject:"PDF本文",number:"P."+p,q:text,a:[],ans:null,ex:"PDF本文から抽出したテキストです。正解・解説は元PDFを確認してください。",tags:[f.name,"PDF","P."+p]});rec.count++}}pdfs.push(rec);save();pdf();}catch(e){console.error(e);pm.textContent="❌ 読み込み失敗。画像PDF・暗号化PDFなどは抽出できない場合があります。"}}
+function loadPdfJS(){if(window.pdfjsLib)return Promise.resolve();return new Promise((resolve,reject)=>{let s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";resolve()};s.onerror=reject;document.head.appendChild(s)})}
+function pdfSearch(i){show("過去問検索");setTimeout(()=>{kw.value=pdfs[i].name;doSearch()},30)}
+function pdfList(i){let a=questions.filter(q=>q.pdfId===pdfs[i].id);app.innerHTML=`<div class="card"><h2>📄 ${esc(pdfs[i].name)}</h2>${a.map(q=>`<div class="card"><b>${esc(q.number)}</b><p>${esc(q.q.slice(0,1000))}</p><button onclick="openQ('${q.id}')">開く</button></div>`).join("")}</div>`}
+function pdfTeach(i){let q=questions.find(q=>q.pdfId===pdfs[i].id);if(q)lesson(q.id)}
+function removePDF(i){if(!confirm("削除しますか？"))return;let id=pdfs[i].id;pdfs.splice(i,1);questions=questions.filter(q=>q.pdfId!==id);save();pdf()}
+function data(){app.innerHTML=`<div class="card"><h2>💾 データ管理</h2><button onclick="exportJSON()">JSON保存</button> <label class="filebtn">JSON復元<input hidden type="file" accept=".json" onchange="importJSON(event)"></label> <button class="red" onclick="resetAll()">全削除</button></div>`}
+function download(n,t,type){let a=document.createElement("a"),u=URL.createObjectURL(new Blob([t],{type}));a.href=u;a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(u),500)}
+function exportJSON(){download("FP1級_勉強部屋_学習データ.json",JSON.stringify(S,null,2),"application/json")}
+function importJSON(e){let f=e.target.files[0],r=new FileReader();r.onload=()=>{try{S=JSON.parse(r.result);questions=S.questions||[];pdfs=S.pdfs||[];save();home()}catch(x){alert("JSONが不正です")}};r.readAsText(f)}
+function resetAll(){if(confirm("全データを削除しますか？")){localStorage.removeItem(KEY);S=base();questions=[];pdfs=[];home()}}
+function saveHTML(){download("FP1級_勉強部屋_v2.html","<!doctype html>\n"+document.documentElement.outerHTML,"text/html")}
+show("ホーム");
+</script></body></html>
